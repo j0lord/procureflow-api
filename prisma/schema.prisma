@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  roleId   Int    @id @default(autoincrement()) @map("RoleID")
+  roleName String @map("RoleName")
+  users    User[]
+
+  @@map("ROLE")
+}
+
+model User {
+  userId            Int                 @id @default(autoincrement()) @map("UserID")
+  username          String              @unique @map("Username")
+  roleId            Int                 @map("RoleID")
+  passwordHash      String?             @map("PasswordHash")
+  auditTrails       AuditTrail[]
+  decidedRequests   RestockingRequest[] @relation("DecidedBy")
+  requestedRequests RestockingRequest[] @relation("RequestedBy")
+  role              Role                @relation(fields: [roleId], references: [roleId])
+  userPermissions   UserPermission[]
+
+  @@map("USERS")
+}
+
+model Permission {
+  permissionId    Int              @id @default(autoincrement()) @map("PermissionID")
+  permissionName  String           @map("PermissionName")
+  userPermissions UserPermission[]
+
+  @@map("PERMISSION")
+}
+
+model UserPermission {
+  userId       Int        @map("UserID")
+  permissionId Int        @map("PermissionID")
+  permission   Permission @relation(fields: [permissionId], references: [permissionId])
+  user         User       @relation(fields: [userId], references: [userId])
+
+  @@id([userId, permissionId])
+  @@map("USER_PERMISSION")
+}
+
+model Item {
+  sku                String              @id @map("SKU")
+  itemName           String              @map("ItemName")
+  allocations        Allocation[]
+  inventories        Inventory[]
+  restockingRequests RestockingRequest[]
+
+  @@map("ITEM")
+}
+
+model Warehouse {
+  warehouseId        String              @id @map("WarehouseID")
+  warehouseName      String              @map("WarehouseName")
+  inventories        Inventory[]
+  restockingRequests RestockingRequest[]
+
+  @@map("WAREHOUSE")
+}
+
+model Inventory {
+  sku            String    @map("SKU")
+  warehouseId    String    @map("WarehouseID")
+  availableStock Int       @map("AvailableStock")
+  item           Item      @relation(fields: [sku], references: [sku])
+  warehouse      Warehouse @relation(fields: [warehouseId], references: [warehouseId])
+
+  @@id([sku, warehouseId])
+  @@map("INVENTORY")
+}
+
+model RestockingRequest {
+  requestId       String       @id @map("RequestID")
+  sku             String       @map("SKU")
+  warehouseId     String       @map("WarehouseID")
+  quantity        Int          @map("Quantity")
+  priority        String       @map("Priority")
+  justification   String       @map("Justification")
+  status          String       @map("Status")
+  requestedBy     Int          @map("RequestedBy")
+  decidedBy       Int?         @map("DecidedBy")
+  createdAt       DateTime     @map("CreatedAt")
+  decisionAt      DateTime?    @map("DecisionAt")
+  rejectionReason String?      @map("RejectionReason")
+  correctionNote  String?      @map("CorrectionNote")
+  allocations     Allocation[]
+  auditTrails     AuditTrail[]
+  decider         User?        @relation("DecidedBy", fields: [decidedBy], references: [userId])
+  requester       User         @relation("RequestedBy", fields: [requestedBy], references: [userId])
+  item            Item         @relation(fields: [sku], references: [sku])
+  warehouse       Warehouse    @relation(fields: [warehouseId], references: [warehouseId])
+
+  @@map("RESTOCKING_REQUEST")
+}
+
+model Allocation {
+  allocationId      String            @id @map("AllocationID")
+  requestId         String            @map("RequestID")
+  sku               String            @map("SKU")
+  quantityAllocated Int               @map("QuantityAllocated")
+  status            String            @map("Status")
+  timestamp         DateTime          @map("Timestamp")
+  request           RestockingRequest @relation(fields: [requestId], references: [requestId])
+  item              Item              @relation(fields: [sku], references: [sku])
+
+  @@map("ALLOCATION")
+}
+
+model AuditTrail {
+  auditId        String            @id @map("AuditID")
+  requestId      String            @map("RequestID")
+  action         String            @map("Action")
+  previousStatus String?           @map("PreviousStatus")
+  newStatus      String?           @map("NewStatus")
+  performedBy    Int               @map("PerformedBy")
+  timestamp      DateTime          @map("Timestamp")
+  user           User              @relation(fields: [performedBy], references: [userId])
+  request        RestockingRequest @relation(fields: [requestId], references: [requestId])
+
+  @@map("AUDIT_TRAIL")
+}
